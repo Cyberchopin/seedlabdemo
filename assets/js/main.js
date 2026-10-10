@@ -12,11 +12,11 @@
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reduce) html.classList.add('reduce');
   const hasGSAP = typeof window.gsap !== 'undefined';
-  const store = {
-    get(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
-    set(k, v) { try { window.localStorage.setItem(k, v); } catch (e) {} },
-    sget(k) { try { return window.sessionStorage.getItem(k); } catch (e) { return null; } },
-    sset(k, v) { try { window.sessionStorage.setItem(k, v); } catch (e) {} }
+  // Tiny per-tab state that survives page navigation (no browser storage needed)
+  const state = {
+    read() { try { return JSON.parse(window.name || '{}') || {}; } catch (e) { return {}; } },
+    set(k, v) { const o = this.read(); o[k] = v; try { window.name = JSON.stringify(o); } catch (e) {} },
+    get(k) { return this.read()[k]; }
   };
 
   /* ------------------------------------------------------------------------
@@ -150,7 +150,7 @@
     btn.addEventListener('click', () => {
       const next = html.dataset.theme === 'dark' ? 'light' : 'dark';
       html.dataset.theme = next;
-      store.set('seed-theme', next);
+      state.set('theme', next);
       btn.innerHTML = next === 'dark' ? SUN : MOON;
       window.dispatchEvent(new Event('seed-theme'));
     });
@@ -208,13 +208,13 @@
       if (samePage && href.includes('#')) { e.preventDefault(); const t = document.querySelector('#' + href.split('#')[1]); if (t) window.__lenis ? window.__lenis.scrollTo(t, { offset: -90 }) : t.scrollIntoView({ behavior: 'smooth' }); return; }
       if (reduce) return;
       e.preventDefault();
-      store.sset('seed-nav', '1');
+      state.set('nav', 1);
       html.classList.add('is-leaving');
       setTimeout(() => { window.location.href = href; }, 620);
     });
     window.addEventListener('pageshow', ev => { if (ev.persisted) html.classList.remove('is-leaving'); });
     if (html.classList.contains('is-entering')) setTimeout(() => html.classList.remove('is-entering'), 1100);
-    store.sset('seed-nav', '');
+    state.set('nav', 0);
   }
 
   /* ------------------------------------------------------------------------
@@ -746,7 +746,6 @@
   function runLoader() {
     const L = $('.loader');
     if (!L || html.classList.contains('no-loader') || !hasGSAP || reduce) { if (L) L.remove(); startIntro(); return; }
-    store.sset('seed-visited', '1');
     const cnt = $('.count', L), o = { v: 0 };
     const svg = $('svg', L);
     const tl = gsap.timeline();
